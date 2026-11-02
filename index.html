@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบรายงานการสอนออนไลน์ (Online Teaching Report System: OTRS)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Google Fonts: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+        .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: 600; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800">
+
+    <!-- Auth Modal (Login with Citizen ID) -->
+    <div id="loginModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 text-white text-center">
+                <div class="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 backdrop-blur-md">
+                    <i class="fa-solid me-0 fa-graduation-cap text-3xl text-blue-200"></i>
+                </div>
+                <h2 class="text-xl font-bold">ระบบรายงานการสอนออนไลน์</h2>
+                <p class="text-xs text-blue-200 mt-1">Online Teaching Report System (OTRS)</p>
+                 <p class="text-xs text-blue-200 mt-1">โรงเรียนสวนกุหลาบวิทยาลัย สระบุรี</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div id="loginAlert" class="hidden p-3 rounded-lg bg-red-50 text-red-600 text-xs font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span id="loginAlertText">เลขบัตรประชาชนไม่ถูกต้อง หรือไม่พบในระบบ</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">เลขบัตรประจำตัวประชาชน 13 หลัก</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-id-card absolute left-3 top-3 text-slate-400"></i>
+                        <input type="password" id="citizenIdInput" maxlength="13" placeholder="ระบุเลขบัตรประชาชน 13 หลัก" 
+                               class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white text-sm outline-none transition">
+                    </div>
+                </div>
+                <div class="pt-2">
+                    <button id="loginBtn" onclick="handleLogin()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                        <i class="fa-solid fa-book-bookmark text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-slate-900 text-base leading-tight">ระบบรายงานการสอนออนไลน์ (OTRS)</h1>
+                        <p class="text-xs text-slate-500 hidden sm:block">โรงเรียนสวนกุหลาบวิทยาลัย สระบุรี</p>
+                    </div>
+                </div>
+                <!-- User Profile Dropdown / Current Status -->
+                <div class="flex items-center gap-4">
+                    <div id="userInfoDisplay" class="text-right hidden sm:block">
+                        <div id="userName" class="text-sm font-semibold text-slate-800">-</div>
+                        <div id="userRoleBadge" class="inline-block text-[10px] px-2 py-0.5 rounded-full bg-slate-100 font-medium text-slate-600">-</div>
+                    </div>
+                    <button onclick="logout()" title="ออกจากระบบ" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-600 flex items-center justify-center text-slate-500 transition">
+                        <i class="fa-solid fa-power-off"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- Role Navigation Tabs -->
+            <nav class="flex gap-6 overflow-x-auto text-sm font-medium border-t border-slate-100 custom-scrollbar" id="navTabs">
+                <button onclick="switchTab('formTab')" id="btn-formTab" class="py-3 px-1 border-b-2 border-transparent hover:text-blue-600 transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-pen-to-square"></i> กรอกรายงานการสอน
+                </button>
+                <button onclick="switchTab('historyTab')" id="btn-historyTab" class="py-3 px-1 border-b-2 border-transparent hover:text-blue-600 transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-clock-rotate-left"></i> ประวัติรายงานของฉัน
+                </button>
+                <button onclick="switchTab('approvalTab')" id="btn-approvalTab" class="py-3 px-1 border-b-2 border-transparent hover:text-blue-600 transition flex items-center gap-2 whitespace-nowrap relative">
+                    <i class="fa-solid fa-clipboard-check"></i> ตรวจสอบรายงาน
+                    <span id="pendingBadge" class="hidden bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">0</span>
+                </button>
+                <button onclick="switchTab('dashboardTab')" id="btn-dashboardTab" class="py-3 px-1 border-b-2 border-transparent hover:text-blue-600 transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-chart-line"></i> แดชบอร์ดผู้บริหาร
+                </button>
+                <button onclick="switchTab('adminTab')" id="btn-adminTab" class="py-3 px-1 border-b-2 border-transparent hover:text-blue-600 transition flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-sliders"></i> จัดการระบบ (Admin)
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- App Content Wrapper -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+        <!-- Notification Banner -->
+        <div id="toastNotification" class="hidden fixed bottom-6 right-6 z-50 max-w-md p-4 rounded-xl shadow-xl bg-slate-900 text-white flex items-center gap-3 animate-bounce">
+            <i class="fa-solid fa-circle-info text-blue-400 text-xl" id="toastIcon"></i>
+            <div class="text-sm" id="toastText">ข้อความแจ้งเตือน</div>
+        </div>
+
+        <!-- Tab 1: Teacher Reporting Form (Module 1) -->
+        <section id="formTab" class="tab-content space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">กรอกรายงานการจัดการเรียนรู้ออน์ไลน์</h2>
+                        <p class="text-xs text-slate-500">บันทึกข้อมูลการสอนสำหรับครูผู้สอนประจำคาบ</p>
+                    </div>
+                    <span class="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 rounded-full font-medium"> Module 1</span>
+                </div>
+
+                <form id="teachingReportForm" onsubmit="handleFormSubmit(event)" class="space-y-6">
+                    <input type="hidden" id="reportId" value="">
+
+                    <!-- Section 1: General Info -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">1. วันที่สอน <span class="text-red-500">*</span></label>
+                            <input type="date" id="reportDate" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">2. คาบเรียนที่ <span class="text-red-500">*</span></label>
+                            <select id="period" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="">-- เลือกคาบ --</option>
+                                <option value="1">คาบที่ 1 (08.30 - 09.20)</option>
+                                <option value="2">คาบที่ 2 (09.20 - 10.10)</option>
+                                <option value="3">คาบที่ 3 (10.10 - 11.00)</option>
+                                <option value="4">คาบที่ 4 (11.00 - 11.50)</option>
+                                <option value="5">คาบที่ 5 (12.40 - 13.30)</option>
+                                <option value="6">คาบที่ 6 (13.30 - 14.20)</option>
+                                <option value="7">คาบที่ 7 (14.20 - 15.10)</option>
+                                <option value="8">คาบที่ 8 (15.10 - 16.00)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">3. กลุ่มสาระฯ <span class="text-red-500">*</span></label>
+                            <select id="department" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="วิทยาศาสตร์และเทคโนโลยี">วิทยาศาสตร์และเทคโนโลยี</option>
+                                <option value="คณิตศาสตร์">คณิตศาสตร์</option>
+                                <option value="ภาษาไทย">ภาษาไทย</option>
+                                <option value="ภาษาต่างประเทศ">ภาษาต่างประเทศ</option>
+                                <option value="สังคมศึกษา ศาสนา และวัฒนธรรม">สังคมศึกษาฯ</option>
+                                <option value="สุขศึกษาและพลศึกษา">สุขศึกษาและพลศึกษา</option>
+                                <option value="ศิลปะ">ศิลปะ</option>
+                                <option value="การงานอาชีพ">การงานอาชีพ</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">4. รหัสวิชา / ชื่อวิชา <span class="text-red-500">*</span></label>
+                            <input type="text" id="subject" placeholder="เช่น ว30101 วิทยาการคำนวณ" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Class & Attendance -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">ระดับชั้น <span class="text-red-500">*</span></label>
+                            <select id="gradeLevel" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                <option value="ม.1">มัธยมศึกษาปีที่ 1</option>
+                                <option value="ม.2">มัธยมศึกษาปีที่ 2</option>
+                                <option value="ม.3">มัธยมศึกษาปีที่ 3</option>
+                                <option value="ม.4">มัธยมศึกษาปีที่ 4</option>
+                                <option value="ม.5">มัธยมศึกษาปีที่ 5</option>
+                                <option value="ม.6">มัธยมศึกษาปีที่ 6</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">ห้องเรียน <span class="text-red-500">*</span></label>
+                            <input type="text" id="room" placeholder="เช่น 1 หรือ 4" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">จำนวนนักเรียนเข้าเรียน (คน) <span class="text-red-500">*</span></label>
+                            <input type="number" min="0" id="studentPresent" required placeholder="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">จำนวนนักเรียน ลา/ขาด (คน) <span class="text-red-500">*</span></label>
+                            <input type="number" min="0" id="studentAbsent" required placeholder="0" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Topic & Pedagogy -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">5. หัวข้อ / จุดประสงค์การเรียนรู้ <span class="text-red-500">*</span></label>
+                            <input type="text" id="topic" placeholder="ระบุเนื้อหาหลักหรือวัตถุประสงค์ในคาบนี้" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-2">6. รูปแบบการจัดการเรียนรู้ (เลือกได้หลายข้อ)</label>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <label class="flex items-center gap-2 p-2.5 border border-slate-200 rounded-xl text-xs hover:bg-slate-50 cursor-pointer">
+                                    <input type="checkbox" name="learningType" value="Active Learning" class="rounded text-blue-600"> Active Learning
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 border border-slate-200 rounded-xl text-xs hover:bg-slate-50 cursor-pointer">
+                                    <input type="checkbox" name="learningType" value="การฝึกปฏิบัติ/ทดลอง" class="rounded text-blue-600"> ปฏิบัติการ/ทดลอง
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 border border-slate-200 rounded-xl text-xs hover:bg-slate-50 cursor-pointer">
+                                    <input type="checkbox" name="learningType" value="บรรยาย/อภิปราย" class="rounded text-blue-600"> บรรยาย/อภิปราย
+                                </label>
+                                <label class="flex items-center gap-2 p-2.5 border border-slate-200 rounded-xl text-xs hover:bg-slate-50 cursor-pointer">
+                                    <input type="checkbox" name="learningType" value="ใช้สื่อดิจิทัล/OBEC Content" class="rounded text-blue-600"> สื่อดิจิทัล/ICT
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">7. สื่อ / นวัตกรรม / แหล่งเรียนรู้ที่ใช้</label>
+                            <input type="text" id="mediaUsed" placeholder="เช่น Google Slides, Quizizz, แบบทดลองออนไลน์" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Section 4: Reflection & Problems -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">8. ผลการจัดกิจกรรมและพฤติกรรมนักเรียน <span class="text-red-500">*</span></label>
+                            <textarea id="results" rows="3" required placeholder="สรุปความเข้าใจ งานที่มอบหมาย และการมีส่วนร่วม" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">9. ปัญหา / อุปสรรค และแนวทางแก้ไข <span class="text-red-500">*</span></label>
+                            <textarea id="problems" rows="3" required placeholder="ระบุปัญหาที่พบและแนวทางปรับปรุงแก้ไข" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Section 5: File Attachments / Google Drive Links -->
+                    <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                                <i class="fa-solid fa-paperclip text-blue-600"></i> 10. แนบไฟล์รูปภาพการสอน / ลิงก์ Google Drive
+                            </label>
+                            <a href="https://drive.google.com/drive/folders/1FRU8vs6DKD81tcYUs86jXMD9YVh_41eg?usp=sharing" target="_blank" class="text-[11px] text-blue-600 hover:underline flex items-center gap-1 font-medium">
+                                
+                            </a>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <input type="url" id="driveUrl" value="https://drive.google.com/drive/folders/1FRU8vs6DKD81tcYUs86jXMD9YVh_41eg?usp=sharing" placeholder="วาง URL Google Drive หรือไฟล์แนบ" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                            <div>
+                                <input type="file" id="fileUploadInput" multiple accept="image/*,.pdf" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+                        <button type="button" onclick="submitReport('Draft')" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-sm transition">
+                            <i class="fa-regular fa-floppy-disk"></i> บันทึกร่าง (Draft)
+                        </button>
+                        <button type="submit" id="submitReportBtn" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-lg shadow-blue-500/20 text-sm transition flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane"></i> ส่งรายงาน (Submit)
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Tab 2: Teacher History (Module 1 Sub-feature) -->
+        <section id="historyTab" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">ประวัติการส่งรายงานของฉัน</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-xs font-semibold text-slate-700 uppercase">
+                            <tr>
+                                <th class="p-3">วันที่/คาบ</th>
+                                <th class="p-3">วิชา/ชั้น</th>
+                                <th class="p-3">หัวข้อการเรียนรู้</th>
+                                <th class="p-3">สถานะ</th>
+                                <th class="p-3">ข้อเสนอแนะ</th>
+                                <th class="p-3 text-right">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacherHistoryTable" class="divide-y divide-slate-100">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab 3: Approval & Review Workflow (Module 2) -->
+        <section id="approvalTab" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">ตรวจสอบและอนุมัติรายงานการสอน</h2>
+                        <p class="text-xs text-slate-500">สำหรับหัวหน้ากลุ่มสาระฯ และผู้บริหารในการตรวจรับรองรายงาน</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="filterStatus" onchange="renderApprovalList()" class="px-3 py-1.5 border border-slate-300 rounded-xl text-xs outline-none">
+                            <option value="Submitted">รอตรวจสอบ (Submitted)</option>
+                            <option value="Approved">อนุมัติแล้ว (Approved)</option>
+                            <option value="Revision Required">ส่งกลับแก้ไข (Revision Required)</option>
+                            <option value="All">ทั้งหมด</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-xs font-semibold text-slate-700">
+                            <tr>
+                                <th class="p-3">ครูผู้สอน</th>
+                                <th class="p-3">วันที่/คาบ</th>
+                                <th class="p-3">วิชา/ชั้น</th>
+                                <th class="p-3">หัวข้อเรื่อง</th>
+                                <th class="p-3">สถานะ</th>
+                                <th class="p-3 text-center">ดำเนินการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="approvalTable" class="divide-y divide-slate-100">
+                            <!-- Dynamically Loaded -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab 4: Executive Dashboard (Module 3) -->
+        <section id="dashboardTab" class="tab-content hidden space-y-6">
+            <!-- Metrics Row -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500">รายงานวันนี้</p>
+                        <h3 class="text-2xl font-bold text-slate-800 mt-1" id="metricToday">64 / 80</h3>
+                        <p class="text-[11px] text-emerald-600 font-medium mt-1"><i class="fa-solid fa-arrow-up"></i> 80% ส่งแล้ว</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-chalkboard-user"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500">รออนุมัติ</p>
+                        <h3 class="text-2xl font-bold text-amber-600 mt-1" id="metricPending">12</h3>
+                        <p class="text-[11px] text-slate-400 mt-1">รอดำเนินการ</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500">อนุมัติเรียบร้อย</p>
+                        <h3 class="text-2xl font-bold text-emerald-600 mt-1" id="metricApproved">48</h3>
+                        <p class="text-[11px] text-emerald-600 font-medium mt-1">ผ่านการตรวจ</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500">ส่งกลับแก้ไข</p>
+                        <h3 class="text-2xl font-bold text-red-600 mt-1" id="metricRevision">4</h3>
+                        <p class="text-[11px] text-red-500 font-medium mt-1">ต้องการการแก้ไข</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 class="text-sm font-bold text-slate-800 mb-4">รูปแบบการจัดการเรียนรู้ที่ใช้บ่อย (Pedagogy Types)</h3>
+                    <div class="h-64">
+                        <canvas id="activeLearningChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 class="text-sm font-bold text-slate-800 mb-4">สถิติการส่งรายงานแยกตามกลุ่มสาระฯ</h3>
+                    <div class="h-64">
+                        <canvas id="deptChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Section: Department Summary Table -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-blue-600"></i> สรุปการส่งรายงานตามกลุ่มสาระการเรียนรู้ (8 กลุ่มสาระฯ)
+                    </h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 font-semibold text-slate-700">
+                            <tr>
+                                <th class="p-3">กลุ่มสาระการเรียนรู้</th>
+                                <th class="p-3 text-center">รายงานทั้งหมด</th>
+                                <th class="p-3 text-center">รออนุมัติ</th>
+                                <th class="p-3 text-center">อนุมัติแล้ว</th>
+                                <th class="p-3 text-center">ส่งกลับแก้ไข</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="deptSummaryTableBody">
+                            <!-- Dynamically generated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Executive Table & Export Feature -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <h3 class="text-base font-bold text-slate-800">ข้อมูลรายงานการสอนทั้งหมด (Real-time Overview)</h3>
+                    <button onclick="exportToExcel()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-md shadow-emerald-600/20">
+                        <i class="fa-solid fa-file-excel"></i> Export Excel (.xlsx)
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs" id="executiveReportTable">
+                        <thead class="bg-slate-50 font-semibold text-slate-700">
+                            <tr>
+                                <th class="p-3">ครูผู้สอน</th>
+                                <th class="p-3">กลุ่มสาระฯ</th>
+                                <th class="p-3">วันที่/คาบ</th>
+                                <th class="p-3">วิชา/ชั้น</th>
+                                <th class="p-3">มา/ขาด</th>
+                                <th class="p-3">สถานะ</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100" id="executiveTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab 5: Admin Panel (Module 4) -->
+        <section id="adminTab" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">จัดการผู้ใช้งานและสิทธิ์ (User & Access Control)</h2>
+                        <p class="text-xs text-slate-500">กำหนดสิทธิ์ครูผู้สอน หัวหน้ากลุ่มสาระฯ และผู้บริหารผ่านระบบรหัสบัตรประชาชน</p>
+                    </div>
+                    <!-- ปุ่มสร้าง/รีเซ็ตฐานข้อมูลสำหรับ Admin -->
+                    <button onclick="setupDatabase()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md transition flex items-center gap-2">
+                        <i class="fa-solid fa-database"></i> สร้าง/รีเซ็ตฐานข้อมูล Google Sheets
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-xs font-semibold text-slate-700">
+                            <tr>
+                                <th class="p-3">ชื่อ-นามสกุล</th>
+                                <th class="p-3">เลขบัตรประชาชน</th>
+                                <th class="p-3">กลุ่มสาระฯ</th>
+                                <th class="p-3">สิทธิ์ในระบบ (Role)</th>
+                                <th class="p-3 text-right">การจัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userAdminTable" class="divide-y divide-slate-100">
+                            <!-- Loaded via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Review / Approval Modal Window -->
+    <div id="reviewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-lg w-full p-6 space-y-4">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="font-bold text-slate-800">พิจารณาและตรวจรายงานการสอน</h3>
+                <button onclick="closeReviewModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="modalReportDetails" class="text-xs space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <!-- Data populated dynamically -->
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">ข้อเสนอแนะ / เหตุผลการส่งกลับ (Comment)</label>
+                <textarea id="reviewerComment" rows="3" placeholder="ระบุข้อเสนอแนะ หรือเหตุผลในการปรับปรุง..." class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button onclick="processReview('Revision Required')" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-left"></i> ส่งกลับให้แก้ไข
+                </button>
+                <button onclick="processReview('Approved')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-check"></i> อนุมัติรายงาน
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // --- Web App State & GAS URL Integration ---
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxnsSL-ezxgL4qkqOubJiLPCV2ZBVgWIavaMLcl5i3bbgGqyjnJj0LzgBtBQjot6uye/exec"; 
+
+        let currentUser = null;
+        let selectedReportId = null;
+        let activeLearningChartInstance = null;
+        let deptChartInstance = null;
+
+        let dbUsers = [
+            { id: '1', cid: '1234', name: 'ผู้ดูแลระบบ (Admin)', role: 'admin', dept: 'เทคโนโลยีสารสนเทศ' },
+            { id: '2', cid: '1100100200301', name: 'ครูสมชาย ใจดี', role: 'teacher', dept: 'วิทยาศาสตร์และเทคโนโลยี' },
+            { id: '3', cid: '1100100200302', name: 'ครูวิภา รัตนะ', role: 'head', dept: 'วิทยาศาสตร์และเทคโนโลยี' },
+            { id: '4', cid: '1100100200303', name: 'ผอ.ประเสริฐ ยิ่งใหญ่', role: 'executive', dept: 'บริหารวิชาการ' }
+        ];
+
+        let mockReports = [];
+
+        // --- Auth Handling ---
+        async function handleLogin() {
+            const cid = document.getElementById('citizenIdInput').value.trim();
+            const alertBox = document.getElementById('loginAlert');
+            const alertText = document.getElementById('loginAlertText');
+            const loginBtn = document.getElementById('loginBtn');
+
+            if (!cid) {
+                alertText.innerText = 'กรุณากรอกเลขบัตรประชาชนหรือรหัสเข้าใช้งาน';
+                alertBox.classList.remove('hidden');
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังตรวจสอบข้อมูล...`;
+
+            try {
+                if (GAS_WEB_APP_URL) {
+                    const response = await fetch(`${GAS_WEB_APP_URL}?action=login&citizen_id=${encodeURIComponent(cid)}`);
+                    const resData = await response.json();
+
+                    if (resData.status === 'success') {
+                        currentUser = resData.user;
+                        document.getElementById('loginModal').classList.add('hidden');
+                        alertBox.classList.add('hidden');
+                        await initUserSession();
+                    } else {
+                        alertText.innerText = resData.message || 'ไม่พบรหัสผู้ใช้งานนี้ในระบบ';
+                        alertBox.classList.remove('hidden');
+                    }
+                } else {
+                    const user = dbUsers.find(u => u.cid === cid);
+                    if (user) {
+                        currentUser = user;
+                        document.getElementById('loginModal').classList.add('hidden');
+                        alertBox.classList.add('hidden');
+                        await initUserSession();
+                    } else {
+                        alertText.innerText = 'ไม่พบรหัสผู้ใช้งานนี้ในระบบฐานข้อมูล';
+                        alertBox.classList.remove('hidden');
+                    }
+                }
+            } catch (err) {
+                console.error("Login Error:", err);
+                const user = dbUsers.find(u => u.cid === cid);
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('loginModal').classList.add('hidden');
+                    alertBox.classList.add('hidden');
+                    await initUserSession();
+                } else {
+                    alertText.innerText = 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล Google Sheets';
+                    alertBox.classList.remove('hidden');
+                }
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ`;
+            }
+        }
+
+        // --- Setup Database Function (Admin) ---
+        async function setupDatabase() {
+            if (!confirm("คุณต้องการสร้าง/เตรียมตารางฐานข้อมูลใน Google Sheets ใช่หรือไม่?")) return;
+
+            if (GAS_WEB_APP_URL) {
+                try {
+                    await fetch(GAS_WEB_APP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'setupDatabase' })
+                    });
+                    showToast('ส่งคำสั่งสร้างฐานข้อมูลลง Google Sheets เรียบร้อยแล้ว!');
+                    setTimeout(async () => {
+                        await loadDataFromGAS();
+                        renderAdminUserList();
+                    }, 1500);
+                } catch (e) {
+                    console.error("Setup DB Error:", e);
+                    showToast('ไม่สามารถเชื่อมต่อกับ Google Apps Script ได้', 'warning');
+                }
+            } else {
+                showToast('จำลองการสร้างตารางฐานข้อมูลสำเร็จ! (ระบุ GAS_WEB_APP_URL เพื่อสร้างชีตจริง)');
+                renderAdminUserList();
+            }
+        }
+
+        // ดึงข้อมูลรายงานและผู้ใช้งานจาก Google Sheets จริง
+        async function loadDataFromGAS() {
+            if (!GAS_WEB_APP_URL) return;
+            try {
+                const repResp = await fetch(`${GAS_WEB_APP_URL}?action=getReports`);
+                const repData = await repResp.json();
+                if (repData.status === 'success' && Array.isArray(repData.reports)) {
+                    mockReports = repData.reports;
+                }
+
+                const userResp = await fetch(`${GAS_WEB_APP_URL}?action=getUsers`);
+                const userData = await userResp.json();
+                if (userData.status === 'success' && Array.isArray(userData.users)) {
+                    dbUsers = userData.users;
+                }
+            } catch (e) {
+                console.error("Error fetching data from GAS:", e);
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('citizenIdInput').value = '';
+            document.getElementById('loginAlert').classList.add('hidden');
+            document.getElementById('loginModal').classList.remove('hidden');
+        }
+
+        async function initUserSession() {
+            document.getElementById('userName').innerText = currentUser.name;
+            const roleLabels = { teacher: 'ครูผู้สอน', head: 'หัวหน้ากลุ่มสาระฯ', executive: 'ผู้บริหาร', admin: 'ผู้ดูแลระบบ' };
+            document.getElementById('userRoleBadge').innerText = roleLabels[currentUser.role] || currentUser.role;
+
+            document.getElementById('btn-formTab').style.display = (currentUser.role === 'teacher' || currentUser.role === 'admin') ? 'flex' : 'none';
+            document.getElementById('btn-historyTab').style.display = (currentUser.role === 'teacher' || currentUser.role === 'admin') ? 'flex' : 'none';
+            document.getElementById('btn-approvalTab').style.display = (currentUser.role === 'head' || currentUser.role === 'executive' || currentUser.role === 'admin') ? 'flex' : 'none';
+            document.getElementById('btn-dashboardTab').style.display = (currentUser.role === 'executive' || currentUser.role === 'head' || currentUser.role === 'admin') ? 'flex' : 'none';
+            document.getElementById('btn-adminTab').style.display = (currentUser.role === 'admin') ? 'flex' : 'none';
+
+            // โหลดข้อมูลล่าสุดจากฐานข้อมูลทุกครั้งที่มีการเข้าสู่ระบบ
+            await loadDataFromGAS();
+
+            if (currentUser.role === 'teacher') switchTab('formTab');
+            else if (currentUser.role === 'head') switchTab('approvalTab');
+            else if (currentUser.role === 'executive') switchTab('dashboardTab');
+            else switchTab('adminTab');
+
+            renderTeacherHistory();
+            renderApprovalList();
+            renderExecutiveDashboard();
+            renderAdminUserList();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('#navTabs button').forEach(el => {
+                el.classList.remove('tab-active');
+            });
+
+            const activeTab = document.getElementById(tabId);
+            const activeBtn = document.getElementById(`btn-${tabId}`);
+            if (activeTab) activeTab.classList.remove('hidden');
+            if (activeBtn) activeBtn.classList.add('tab-active');
+        }
+
+        // --- Form Submission & Actions ---
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            await submitReport('Submitted');
+        }
+
+        async function submitReport(status) {
+            const reportId = document.getElementById('reportId').value || 'REP-' + Date.now();
+            const checkedTypes = Array.from(document.querySelectorAll('input[name="learningType"]:checked')).map(cb => cb.value);
+            const fileInput = document.getElementById('fileUploadInput');
+            let driveUrlValue = document.getElementById('driveUrl').value.trim();
+
+            const submitBtn = document.getElementById('submitReportBtn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกข้อมูล...`;
+            }
+
+            try {
+                // อัปโหลดไฟล์ไป Google Drive หากมีการเลือกไฟล์
+                if (fileInput && fileInput.files.length > 0 && GAS_WEB_APP_URL) {
+                    for (let i = 0; i < fileInput.files.length; i++) {
+                        const file = fileInput.files[i];
+                        const base64 = await readFileAsBase64(file);
+                        const uploadRes = await fetch(GAS_WEB_APP_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'uploadFile',
+                                fileData: {
+                                    fileName: file.name,
+                                    mimeType: file.type,
+                                    base64Data: base64
+                                }
+                            })
+                        });
+                    }
+                }
+
+                const reportPayload = {
+                    report_id: reportId,
+                    user_id: currentUser ? currentUser.id : '1',
+                    teacher_name: currentUser ? currentUser.name : 'ครูผู้สอน',
+                    report_date: document.getElementById('reportDate').value,
+                    period: document.getElementById('period').value,
+                    department: document.getElementById('department').value,
+                    subject_code: document.getElementById('subject').value.split(' ')[0] || '',
+                    subject_name: document.getElementById('subject').value,
+                    grade_level: document.getElementById('gradeLevel').value,
+                    room: document.getElementById('room').value,
+                    student_present: parseInt(document.getElementById('studentPresent').value) || 0,
+                    student_absent: parseInt(document.getElementById('studentAbsent').value) || 0,
+                    topic: document.getElementById('topic').value,
+                    learning_type: checkedTypes,
+                    media_used: document.getElementById('mediaUsed').value,
+                    results: document.getElementById('results').value,
+                    problems_solutions: document.getElementById('problems').value,
+                    image_urls: driveUrlValue,
+                    status: status,
+                    reviewer_comment: ''
+                };
+
+                if (GAS_WEB_APP_URL) {
+                    await fetch(GAS_WEB_APP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'submitReport',
+                            payload: reportPayload
+                        })
+                    });
+                }
+
+                // อัปเดตข้อมูลในเครื่องแบบทันที
+                const existingIndex = mockReports.findIndex(r => r.report_id === reportId);
+                if (existingIndex >= 0) {
+                    mockReports[existingIndex] = reportPayload;
+                } else {
+                    mockReports.unshift(reportPayload);
+                }
+
+                showToast(`บันทึกรายงานการสอน (${status}) สำเร็จเรียบร้อยแล้ว!`);
+                document.getElementById('teachingReportForm').reset();
+                document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
+                
+                renderTeacherHistory();
+                renderExecutiveDashboard();
+                switchTab('historyTab');
+
+            } catch (err) {
+                console.error("Submit Report Error:", err);
+                showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'warning');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> ส่งรายงาน (Submit)`;
+                }
+            }
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- Render Teacher History Table ---
+        function renderTeacherHistory() {
+            const tbody = document.getElementById('teacherHistoryTable');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const myReports = currentUser ? mockReports.filter(r => r.user_id === currentUser.id) : mockReports;
+
+            if (myReports.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-slate-400">ยังไม่มีประวัติการส่งรายงาน</td></tr>`;
+                return;
+            }
+
+            myReports.forEach(r => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="p-3 font-medium text-slate-800">${r.report_date}<br><span class="text-xs text-slate-400">คาบ ${r.period}</span></td>
+                        <td class="p-3">${r.subject_name}<br><span class="text-xs text-slate-400">${r.grade_level}/${r.room}</span></td>
+                        <td class="p-3 font-normal">${r.topic}</td>
+                        <td class="p-3">${getStatusBadge(r.status)}</td>
+                        <td class="p-3 text-xs text-slate-500">${r.reviewer_comment || '-'}</td>
+                        <td class="p-3 text-right">
+                            <button onclick="editReport('${r.report_id}')" class="text-blue-600 hover:text-blue-800 text-xs font-semibold">
+                                <i class="fa-solid fa-pen-to-square"></i> แก้ไข
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function editReport(reportId) {
+            const r = mockReports.find(item => item.report_id === reportId);
+            if (!r) return;
+
+            document.getElementById('reportId').value = r.report_id;
+            document.getElementById('reportDate').value = r.report_date;
+            document.getElementById('period').value = r.period;
+            document.getElementById('department').value = r.department;
+            document.getElementById('subject').value = r.subject_name;
+            document.getElementById('gradeLevel').value = r.grade_level;
+            document.getElementById('room').value = r.room;
+            document.getElementById('studentPresent').value = r.student_present;
+            document.getElementById('studentAbsent').value = r.student_absent;
+            document.getElementById('topic').value = r.topic;
+            document.getElementById('mediaUsed').value = r.media_used;
+            document.getElementById('results').value = r.results;
+            document.getElementById('problems').value = r.problems_solutions;
+            document.getElementById('driveUrl').value = r.image_urls;
+
+            document.querySelectorAll('input[name="learningType"]').forEach(cb => {
+                const types = Array.isArray(r.learning_type) ? r.learning_type : [r.learning_type];
+                cb.checked = types.includes(cb.value);
+            });
+
+            switchTab('formTab');
+            showToast('ดึงข้อมูลรายงานมาแก้ไขเรียบร้อยแล้ว');
+        }
+
+        // --- Render Executive Dashboard metrics, charts & dept summary ---
+        function renderExecutiveDashboard() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayReports = mockReports.filter(r => r.report_date === todayStr);
+            const pendingCount = mockReports.filter(r => r.status === 'Submitted').length;
+            const approvedCount = mockReports.filter(r => r.status === 'Approved').length;
+            const revisionCount = mockReports.filter(r => r.status === 'Revision Required').length;
+
+            document.getElementById('metricToday').innerText = `${todayReports.length} / 80`;
+            document.getElementById('metricPending').innerText = pendingCount;
+            document.getElementById('metricApproved').innerText = approvedCount;
+            document.getElementById('metricRevision').innerText = revisionCount;
+
+            // Render Department Summary Table
+            renderDeptSummaryTable();
+
+            // Render Table overview
+            const tbody = document.getElementById('executiveTableBody');
+            if (tbody) {
+                tbody.innerHTML = '';
+                if (mockReports.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-slate-400">ยังไม่มีข้อมูลรายงานในระบบ</td></tr>`;
+                } else {
+                    mockReports.forEach(r => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td class="p-3 font-semibold text-slate-800">${r.teacher_name}</td>
+                                <td class="p-3">${r.department}</td>
+                                <td class="p-3">${r.report_date} (คาบ ${r.period})</td>
+                                <td class="p-3">${r.subject_name} (${r.grade_level}/${r.room})</td>
+                                <td class="p-3">${r.student_present} / ${r.student_absent}</td>
+                                <td class="p-3">${getStatusBadge(r.status)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+            }
+
+            renderCharts();
+        }
+
+        // --- Render Department Summary Table ---
+        function renderDeptSummaryTable() {
+            const tbody = document.getElementById('deptSummaryTableBody');
+            if (!tbody) return;
+
+            const allDepts = [
+                "วิทยาศาสตร์และเทคโนโลยี", "คณิตศาสตร์", "ภาษาไทย", 
+                "ภาษาต่างประเทศ", "สังคมศึกษา ศาสนา และวัฒนธรรม", 
+                "สุขศึกษาและพลศึกษา", "ศิลปะ", "การงานอาชีพ"
+            ];
+
+            const deptStats = {};
+            allDepts.forEach(d => {
+                deptStats[d] = { total: 0, pending: 0, approved: 0, revision: 0 };
+            });
+
+            mockReports.forEach(r => {
+                const dept = r.department;
+                if (deptStats[dept]) {
+                    deptStats[dept].total++;
+                    if (r.status === 'Submitted') deptStats[dept].pending++;
+                    else if (r.status === 'Approved') deptStats[dept].approved++;
+                    else if (r.status === 'Revision Required') deptStats[dept].revision++;
+                }
+            });
+
+            tbody.innerHTML = '';
+            allDepts.forEach(dept => {
+                const stat = deptStats[dept];
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="p-3 font-medium text-slate-800">${dept}</td>
+                        <td class="p-3 text-center font-bold text-slate-700">${stat.total}</td>
+                        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600">${stat.pending}</span></td>
+                        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600">${stat.approved}</span></td>
+                        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-600">${stat.revision}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- Render Approval List ---
+        function renderApprovalList() {
+            const tbody = document.getElementById('approvalTable');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const filter = document.getElementById('filterStatus') ? document.getElementById('filterStatus').value : 'Submitted';
+            let list = mockReports;
+
+            if (filter !== 'All') {
+                list = list.filter(r => r.status === filter);
+            }
+
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-slate-400">ไม่พบรายการรายงานที่ต้องตรวจสอบ</td></tr>`;
+                return;
+            }
+
+            list.forEach(r => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="p-3 font-semibold text-slate-800">${r.teacher_name}<br><span class="text-xs font-normal text-slate-400">${r.department}</span></td>
+                        <td class="p-3">${r.report_date}<br><span class="text-xs text-slate-400">คาบ ${r.period}</span></td>
+                        <td class="p-3">${r.subject_name}<br><span class="text-xs text-slate-400">${r.grade_level}/${r.room}</span></td>
+                        <td class="p-3">${r.topic}</td>
+                        <td class="p-3">${getStatusBadge(r.status)}</td>
+                        <td class="p-3 text-center">
+                            <button onclick="openReviewModal('${r.report_id}')" class="px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-semibold">
+                                ตรวจสอบ
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openReviewModal(reportId) {
+            selectedReportId = reportId;
+            const r = mockReports.find(item => item.report_id === reportId);
+            if (!r) return;
+
+            const modalDetails = document.getElementById('modalReportDetails');
+            modalDetails.innerHTML = `
+                <div class="grid grid-cols-2 gap-2 border-b pb-2 mb-2">
+                    <div><strong>ครูผู้สอน:</strong> ${r.teacher_name}</div>
+                    <div><strong>กลุ่มสาระฯ:</strong> ${r.department}</div>
+                    <div><strong>วันที่/คาบ:</strong> ${r.report_date} (คาบ ${r.period})</div>
+                    <div><strong>วิชา/ชั้น:</strong> ${r.subject_name} (${r.grade_level}/${r.room})</div>
+                    <div><strong>นักเรียนเข้าเรียน:</strong> ${r.student_present} คน</div>
+                    <div><strong>ลา/ขาด:</strong> ${r.student_absent} คน</div>
+                </div>
+                <div class="space-y-1">
+                    <p><strong>หัวข้อการเรียนรู้:</strong> ${r.topic}</p>
+                    <p><strong>รูปแบบการสอน:</strong> ${Array.isArray(r.learning_type) ? r.learning_type.join(', ') : r.learning_type}</p>
+                    <p><strong>สื่อที่ใช้:</strong> ${r.media_used || '-'}</p>
+                    <p><strong>ผลการสอน:</strong> ${r.results}</p>
+                    <p><strong>ปัญหา/แนวทางแก้ไข:</strong> ${r.problems_solutions}</p>
+                    <p class="pt-1"><strong>แนบไฟล์/ลิงก์:</strong> <a href="${r.image_urls}" target="_blank" class="text-blue-600 underline">${r.image_urls}</a></p>
+                </div>
+            `;
+            document.getElementById('reviewerComment').value = r.reviewer_comment || '';
+            document.getElementById('reviewModal').classList.remove('hidden');
+        }
+
+        function closeReviewModal() {
+            document.getElementById('reviewModal').classList.add('hidden');
+        }
+
+        async function processReview(status) {
+            const comment = document.getElementById('reviewerComment').value;
+            const r = mockReports.find(item => item.report_id === selectedReportId);
+            if (r) {
+                r.status = status;
+                r.reviewer_comment = comment;
+
+                if (GAS_WEB_APP_URL) {
+                    await fetch(GAS_WEB_APP_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'updateStatus',
+                            payload: { report_id: selectedReportId, status: status, reviewer_comment: comment }
+                        })
+                    });
+                }
+            }
+            closeReviewModal();
+            showToast(`ปรับสถานะรายงานเป็น "${status}" เรียบร้อยแล้ว`);
+            renderApprovalList();
+            renderExecutiveDashboard();
+        }
+
+        // --- Render Charts Dynamic with Real Database Data ---
+        function renderCharts() {
+            // Count Pedagogy Types
+            const pedagogyCounts = {
+                'Active Learning': 0,
+                'การฝึกปฏิบัติ/ทดลอง': 0,
+                'บรรยาย/อภิปราย': 0,
+                'ใช้สื่อดิจิทัล/OBEC Content': 0
+            };
+
+            // Count Reports by Dept
+            const deptCounts = {};
+
+            mockReports.forEach(r => {
+                // Count Learning Types
+                const types = Array.isArray(r.learning_type) ? r.learning_type : [r.learning_type];
+                types.forEach(t => {
+                    if (pedagogyCounts[t] !== undefined) pedagogyCounts[t]++;
+                    else if (t) pedagogyCounts[t] = 1;
+                });
+
+                // Count Dept
+                const dept = r.department || 'ไม่ระบุกลุ่มสาระ';
+                deptCounts[dept] = (deptCounts[dept] || 0) + 1;
+            });
+
+            // 1. Render Active Learning Doughnut Chart
+            const ctx1 = document.getElementById('activeLearningChart');
+            if (ctx1) {
+                if (activeLearningChartInstance) activeLearningChartInstance.destroy();
+                activeLearningChartInstance = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(pedagogyCounts),
+                        datasets: [{
+                            data: Object.values(pedagogyCounts),
+                            backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            // 2. Render Dept Bar Chart
+            const ctx2 = document.getElementById('deptChart');
+            if (ctx2) {
+                if (deptChartInstance) deptChartInstance.destroy();
+                deptChartInstance = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(deptCounts).length > 0 ? Object.keys(deptCounts) : ['ยังไม่มีข้อมูล'],
+                        datasets: [{
+                            label: 'จำนวนรายงานที่ส่ง (ฉบับ)',
+                            data: Object.keys(deptCounts).length > 0 ? Object.values(deptCounts) : [0],
+                            backgroundColor: '#3b82f6'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                    }
+                });
+            }
+        }
+
+        function renderAdminUserList() {
+            const tbody = document.getElementById('userAdminTable');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            dbUsers.forEach(u => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="p-3 font-semibold text-slate-800">${u.name}</td>
+                        <td class="p-3">${u.cid}</td>
+                        <td class="p-3">${u.dept}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">${u.role}</span></td>
+                        <td class="p-3 text-right">
+                            <button class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-pen"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function exportToExcel() {
+            const table = document.getElementById('executiveReportTable');
+            if (!table) return;
+            const wb = XLSX.utils.table_to_book(table, { sheet: "Teaching Reports" });
+            XLSX.writeFile(wb, `OTRS_Teaching_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        function getStatusBadge(status) {
+            switch (status) {
+                case 'Approved':
+                    return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800"><i class="fa-solid fa-check-circle"></i> อนุมัติแล้ว</span>`;
+                case 'Submitted':
+                    return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800"><i class="fa-solid fa-clock"></i> รออนุมัติ</span>`;
+                case 'Revision Required':
+                    return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800"><i class="fa-solid fa-triangle-exclamation"></i> ส่งกลับแก้ไข</span>`;
+                default:
+                    return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">บันทึกร่าง</span>`;
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastText').innerText = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 4000);
+        }
+
+        // Default Load Init
+        window.onload = function() {
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('reportDate');
+            if (dateInput) {
+                dateInput.value = today;
+            }
+        };
+    </script>
+</body>
+</html>
