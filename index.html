@@ -295,6 +295,17 @@
                         </tbody>
                     </table>
                 </div>
+
+
+<!-- ปุ่มรีเฟรชข้อมูลล่าสุด -->
+                    <button id="btnRefreshHistory" onclick="refreshTeacherHistory()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition flex items-center gap-2">
+                        <i id="refreshIcon" class="fa-solid fa-rotate text-blue-600"></i> รีเฟรชข้อมูล
+                    </button>
+
+
+
+
+                
             </div>
         </section>
 
@@ -853,6 +864,40 @@
             showToast('ดึงข้อมูลรายงานมาแก้ไขเรียบร้อยแล้ว');
         }
 
+
+
+        
+
+// --- Refresh Teacher History ---
+        async function refreshTeacherHistory() {
+            const btn = document.getElementById('btnRefreshHistory');
+            const icon = document.getElementById('refreshIcon');
+            
+            if (btn) btn.disabled = true;
+            if (icon) icon.classList.add('fa-spin');
+
+            try {
+                await loadDataFromGAS();
+                renderTeacherHistory();
+                showToast('อัปเดตข้อมูลประวัติรายงานล่าสุดเรียบร้อยแล้ว');
+            } catch (err) {
+                console.error("Refresh Error:", err);
+                showToast('ไม่สามารถดึงข้อมูลล่าสุดได้', 'warning');
+            } finally {
+                if (btn) btn.disabled = false;
+                if (icon) icon.classList.remove('fa-spin');
+            }
+        }
+
+
+
+
+
+
+
+
+
+        
         // --- Render Executive Dashboard metrics, charts & dept summary ---
         function renderExecutiveDashboard() {
             const todayStr = new Date().toISOString().split('T')[0];
