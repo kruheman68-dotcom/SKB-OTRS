@@ -746,16 +746,20 @@
                 submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกข้อมูล...`;
             }
 
-            try {
+           
+			
+			
+			
+			 try {
                 // อัปโหลดไฟล์ไป Google Drive หากมีการเลือกไฟล์
                 if (fileInput && fileInput.files.length > 0 && GAS_WEB_APP_URL) {
+                    const uploadedUrls = [];
                     for (let i = 0; i < fileInput.files.length; i++) {
                         const file = fileInput.files[i];
                         const base64 = await readFileAsBase64(file);
                         const uploadRes = await fetch(GAS_WEB_APP_URL, {
                             method: 'POST',
-                            mode: 'no-cors',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'text/plain' },
                             body: JSON.stringify({
                                 action: 'uploadFile',
                                 fileData: {
@@ -765,9 +769,25 @@
                                 }
                             })
                         });
+                        const resJson = await uploadRes.json();
+                        if (resJson.status === 'success' && resJson.fileUrl) {
+                            uploadedUrls.push(resJson.fileUrl);
+                        }
+                    }
+                    if (uploadedUrls.length > 0) {
+                        // รวมลิงก์ที่สร้างขึ้นเข้ากับลิงก์เดิม (ถ้ามี)
+                        const newDriveLinks = uploadedUrls.join(', ');
+                        driveUrlValue = driveUrlValue ? `${driveUrlValue}, ${newDriveLinks}` : newDriveLinks;
+                        document.getElementById('driveUrl').value = driveUrlValue;
                     }
                 }
 
+
+
+
+
+
+				
                 const reportPayload = {
                     report_id: reportId,
                     user_id: currentUser ? currentUser.id : '1',
